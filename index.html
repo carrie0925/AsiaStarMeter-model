@@ -1,55 +1,124 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-Hant">
   <head>
+    <meta charset="UTF-8" />
     <title>Asia Star Meter</title>
+
+    <!-- Vapor 主題 -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.2/dist/vapor/bootstrap.min.css"
+    />
+    <style>
+      body {
+        padding: 2rem;
+      }
+      #preview {
+        max-width: 300px;
+        max-height: 400px;
+        border-radius: 10px;
+        border: 1px solid #888;
+        display: none;
+      }
+      #result-card {
+        margin-top: 2rem;
+        font-size: 1.25rem;
+        font-weight: 500;
+      }
+    </style>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.4/dist/teachablemachine-image.min.js"></script>
   </head>
-  <body>
-    <h1>Asia Star Meter Demo</h1>
-    <button type="button" onclick="init()">Start</button>
-    <div id="webcam-container"></div>
-    <div id="label-container"></div>
+  <body class="container text-center">
+    <h1 class="mb-4">🌟 Asia Star Meter</h1>
 
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
-    <script type="text/javascript">
-      const URL =
-        "https://carrie0925.github.io/AsiaStarMeter-model/tm-my-image-model/";
-      let model, webcam, labelContainer, maxPredictions;
+    <!-- 檔案選擇區 -->
+    <div class="mb-3 d-flex justify-content-center gap-3 flex-wrap">
+      <input
+        class="form-control btn btn-secondary w-auto"
+        type="file"
+        id="imageUpload"
+        accept="image/*"
+      />
+      <button class="btn btn-primary" onclick="handleImageUpload()">
+        Check
+      </button>
+    </div>
 
-      async function init() {
-        const modelURL = URL + "model.json";
-        const metadataURL = URL + "metadata.json";
+    <!-- 圖片與結果 -->
+    <div class="d-flex justify-content-center">
+      <img id="preview" alt="預覽圖片" />
+    </div>
+    <div id="label-container" class="mt-4"></div>
 
-        model = await tmImage.load(modelURL, metadataURL);
-        maxPredictions = model.getTotalClasses();
+    <script>
+      const modelBasePath = "tm-my-image-model/";
+      let model, maxPredictions;
 
-        const flip = true;
-        webcam = new tmImage.Webcam(200, 200, flip);
-        await webcam.setup();
-        await webcam.play();
-        window.requestAnimationFrame(loop);
-
-        document.getElementById("webcam-container").appendChild(webcam.canvas);
-        labelContainer = document.getElementById("label-container");
-        for (let i = 0; i < maxPredictions; i++) {
-          labelContainer.appendChild(document.createElement("div"));
+      async function loadModel() {
+        try {
+          const modelURL = modelBasePath + "model.json";
+          const metadataURL = modelBasePath + "metadata.json";
+          model = await tmImage.load(modelURL, metadataURL);
+          maxPredictions = model.getTotalClasses();
+          console.log("✅ 模型已載入完成");
+        } catch (e) {
+          alert("❌ 模型載入失敗！");
+          console.error(e);
         }
       }
 
-      async function loop() {
-        webcam.update();
-        await predict();
-        window.requestAnimationFrame(loop);
+      loadModel();
+
+      function handleImageUpload() {
+        const input = document.getElementById("imageUpload");
+        const file = input.files[0];
+        if (!file) {
+          alert("請先選擇圖片！");
+          return;
+        }
+
+        const preview = document.getElementById("preview");
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = "block";
+
+        preview.onload = () => {
+          predict(preview);
+        };
+
+        preview.onerror = () => {
+          alert("❌ 圖片載入失敗，請換一張圖片！");
+        };
       }
 
-      async function predict() {
-        const prediction = await model.predict(webcam.canvas);
-        for (let i = 0; i < maxPredictions; i++) {
-          const classPrediction =
-            prediction[i].className +
-            ": " +
-            prediction[i].probability.toFixed(2);
-          labelContainer.childNodes[i].innerHTML = classPrediction;
+      async function predict(imageElement) {
+        try {
+          if (!model) {
+            alert("模型尚未載入完成！");
+            return;
+          }
+
+          const prediction = await model.predict(imageElement);
+          const idolScore = prediction.find(
+            (p) => p.className === "idol"
+          ).probability;
+
+          let resultText = "";
+          if (idolScore >= 0.8) {
+            resultText = "🌟 出道潛力極高！你就是下一個偶像！";
+          } else if (idolScore >= 0.5) {
+            resultText = "✨ 有潛力！持續努力就有機會出道！";
+          } else {
+            resultText = "💬 目前還不太適合出道，但每個人都有不同魅力！";
+          }
+
+          const container = document.getElementById("label-container");
+          container.innerHTML = `<div class="alert alert-info" id="result-card">${resultText}</div>`;
+        } catch (err) {
+          console.error("❌ 預測錯誤：", err);
+          alert("⚠️ 預測失敗，請確認圖片格式正確。");
         }
       }
     </script>

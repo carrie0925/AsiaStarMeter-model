@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Asia Star Meter</title>
+    <style>
+      body {
+        font-family: "Arial", sans-serif;
+        padding: 40px;
+        background: #fafafa;
+        text-align: center;
+      }
+
+      #preview {
+        max-width: 300px;
+        margin-top: 20px;
+        display: none;
+        border: 1px solid #ccc;
+      }
+
+      #label-container {
+        margin-top: 30px;
+        font-size: 20px;
+        font-weight: bold;
+        color: #333;
+      }
+
+      button {
+        margin-left: 10px;
+        padding: 8px 16px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+    </style>
+
+    <!-- ✅ 使用穩定版本 -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.4/dist/teachablemachine-image.min.js"></script>
+  </head>
+  <body>
+    <h1>Asia Star Meter Demo</h1>
+
+    <input type="file" id="imageUpload" accept="image/*" />
+    <button onclick="handleUpload()">Check</button>
+    <br />
+    <img id="preview" src="" alt="Image Preview" />
+    <div id="label-container"></div>
+
+    <script>
+      const URL = "tm-my-image-model/";
+      let model, maxPredictions;
+
+      async function loadModel() {
+        try {
+          const modelURL = URL + "model.json";
+          const metadataURL = URL + "metadata.json";
+          model = await tmImage.load(modelURL, metadataURL);
+          maxPredictions = model.getTotalClasses();
+          console.log("✅ 模型載入完成");
+        } catch (e) {
+          alert("❌ 模型載入失敗！");
+          console.error(e);
+        }
+      }
+
+      loadModel();
+
+      function handleUpload() {
+        const fileInput = document.getElementById("imageUpload");
+        const file = fileInput.files[0];
+        if (!file) {
+          alert("請先選擇圖片！");
+          return;
+        }
+
+        const preview = document.getElementById("preview");
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = "block";
+
+        preview.onload = () => {
+          predict(preview);
+        };
+      }
+
+      async function predict(imageElement) {
+        try {
+          const prediction = await model.predict(imageElement);
+          const idolScore = prediction.find(
+            (p) => p.className === "idol"
+          ).probability;
+          let resultText = "";
+
+          if (idolScore >= 0.8) {
+            resultText = "🌟 出道潛力極高！你就是下一個偶像！";
+          } else if (idolScore >= 0.5) {
+            resultText = "✨ 有潛力！持續努力就有機會出道！";
+          } else {
+            resultText = "💬 目前還不太適合出道，但每個人都有不同魅力！";
+          }
+
+          document.getElementById(
+            "label-container"
+          ).innerHTML = `偶像潛力分數：${(idolScore * 100).toFixed(
+            1
+          )}%<br>${resultText}`;
+        } catch (err) {
+          alert("❌ 預測時出錯，請再試一次！");
+          console.error(err);
+        }
+      }
+    </script>
+  </body>
+</html>
